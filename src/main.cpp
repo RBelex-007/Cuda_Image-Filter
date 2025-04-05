@@ -18,7 +18,7 @@ using namespace cv;
 
 VideoCapture cap(0);
 
-RNG rng(12345);//random number
+RNG rng(12345);//random num
 
 int main(int argc, char** argv )
 {   
@@ -30,6 +30,48 @@ int main(int argc, char** argv )
 
     Mat corners;
     cuda::GpuMat cornersGpu;
-  
+
+    
+    while(cap.isOpened()){
+
+        auto start = getTickCount();
+
+        cap.read(img);
+        imgGpu.upload(img);
+
+        cuda::cvtColor(imgGpu, gray, COLOR_BGR2GRAY);
+
+        auto cornerDetector = cuda::createGoodFeaturesToTrackDetector(gray.type(), 100, 0.01, 10, 3, false);
+        cornerDetector->detect(gray, cornersGpu);
+
+        cornersGpu.download(corners);
+
+        auto end = getTickCount();
+        auto totalTime = (end - start) / getTickFrequency();
+        auto fps = 1 / totalTime;
+
+        for(int i = 0; i < corners.cols; i++){
+
+            int b = rng.uniform(0,255);
+            int g = rng.uniform(0,255);
+            int r = rng.uniform(0,255);
+            Point2f point = corners.at<Point2f>(0, i);
+            circle(img, point, 6, Scalar(b,g,r), 2, 8);
+        }
+
+        putText(img, "FPS: " + to_string(int(fps)), Point(50, 50), FONT_HERSHEY_DUPLEX, 1, Scalar(255, 255, 255), 2, false);
+        imshow("Image", img);
+
+
+        if(waitKey(1) == 'q'){
+            break;
+        }
+        
+    }
+
+
+    cap.release();
+    destroyAllWindows();
+    
     return 0;
 }
